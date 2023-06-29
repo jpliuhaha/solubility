@@ -29,9 +29,7 @@ class BasicFileParser(object):
             "Line parser not implemented.")
 
     def parse_file(self, raw_data):
-        # This function is used to return a Dataset parsed from the given dataset file.
-        # Dataset is a list of dicts in type of {'SMILES':'xxx', 'Value':value}
-        # value is a list of strings, like ['1','0','1',...]
+
         Dataset = []
         for line in raw_data:
             data = self._parse_line(line)
@@ -115,7 +113,6 @@ class MolDatasetTrain(data.Dataset):
         else:
             self.max_atom_num = 102
 
-        # if use methods in AttentiveFP to construct dataset, some more works should be down here.
         if opt.args['Feature'] == 'AttentiveFP':
             print("Using Attentive FP. Dataset is being checked.")
             self.checker = AttentiveFPChecker(max_atom_num=self.max_atom_num, max_degree=5)
@@ -141,8 +138,7 @@ class MolDatasetTrain(data.Dataset):
 
 
 class MolDatasetCreator(object):
-    # An object to create molecule datasets from a given dataset file path.
-    # Using CreateDatasets function to generate 2 or 3 datasets, based on the SplitRate
+
     def __init__(self, opt):
         super(MolDatasetCreator, self).__init__()
 
