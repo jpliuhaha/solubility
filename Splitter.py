@@ -148,7 +148,7 @@ class ScaffoldRandomSplitter(BasicSplitter):
             testids, chosen_scaffolds = self.BinaryClassSample(dataset, scaffolds, sample_size, test_num, minor_ratio,
                                                         minorclass, testseed)
             testset = self.id2data(dataset, testids)
-            # remain_scaffolds = self.excludedscaffolds(scaffold_keys, chosen_scaffolds)
+
             remain_scaffolds = {x: scaffolds[x] for x in scaffolds.keys() if x not in chosen_scaffolds}
             sample_size = int(len(remain_scaffolds.keys()) * rate[1])
             validids, _ = self.BinaryClassSample(dataset, remain_scaffolds, sample_size, valid_num, minor_ratio, minorclass,
@@ -162,9 +162,7 @@ class ScaffoldRandomSplitter(BasicSplitter):
             scaffold_keys = scaffolds.keys() 
             if len(rate) == 1:  
                 sample_size = int(len(scaffold_keys) * (1 - rate[0]))
-                # trick: the ratio of the sampled scaffolds is equal to the ratio of the sampled molecules.
-                # which means that the program hope to sample the scaffold_sets in an average size.
-                # So that the scaffold_set sampled is not too small.
+
                 validids, _ = self.RegressionSample(scaffolds, sample_size, valid_num, validseed)
                 validset = self.id2data(dataset, validids)
                 trainids = self.excludedids(len(dataset), validids)
