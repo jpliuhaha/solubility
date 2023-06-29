@@ -2,15 +2,9 @@ import random
 import numpy as np
 from FraGAT.ChemUtils import *
 
-
-
-
-
 class BasicSplitter(object):
     def __init__(self):
         super(BasicSplitter, self).__init__()
-
-
     def split(self, dataset, opt):
         raise NotImplementedError(
             "Dataset Splitter not implemented.")
@@ -40,6 +34,9 @@ class RandomSplitter(BasicSplitter):
             return True
 
     def split(self, dataset, opt):
+        
+        #SplitRate:8:1:1,7:2:1,6:3:1.5:4:1
+        
         rate = opt.args['SplitRate']
         validseed = opt.args['SplitValidSeed']
         testseed = opt.args['SplitTestSeed']
@@ -56,11 +53,7 @@ class RandomSplitter(BasicSplitter):
 
                 assert len(set1) == train_num
                 assert len(set2) == valid_num
-                if opt.args['ClassNum'] == 2:
-                    endflag = self.CheckClass(set2, opt.args['TaskNum'])
-                    validseed += 1
-                else:
-                    endflag = 1
+                endflag = 1
             return (set1, set2)
 
         if len(rate) == 2:
@@ -72,11 +65,7 @@ class RandomSplitter(BasicSplitter):
                 random.seed(testseed)
                 random.shuffle(dataset)
                 set3 = dataset[(train_num + valid_num):]
-                if opt.args['ClassNum'] == 2:
-                    endflag = self.CheckClass(set3, opt.args['TaskNum'])
-                    testseed += 1
-                else:
-                    endflag = 1
+                endflag = 1
 
             set_remain = dataset[:(train_num + valid_num)]
             endflag = 0
@@ -85,96 +74,13 @@ class RandomSplitter(BasicSplitter):
                 random.shuffle(set_remain)
                 set1 = set_remain[:train_num]
                 set2 = set_remain[train_num:]
-
-                if opt.args['ClassNum'] == 2:
-                    endflag = self.CheckClass(set2, opt.args['TaskNum'])
-                    validseed += 1
-                else:
-                    endflag = 1
+                endflag = 1
 
                 assert len(set1) == train_num
                 assert len(set2) == valid_num
                 assert len(set3) == test_num
 
             return (set1,set2,set3)
-
-
-
-class ScaffoldSplitter(BasicSplitter):
-    def __init__(self):
-        super(ScaffoldSplitter, self).__init__()
-
-    def generate_scaffold(self, smiles, include_chirality = False):
-        generator = ScaffoldGenerator(include_chirality = include_chirality)
-        scaffold = generator.get_scaffold(smiles)
-        return scaffold
-
-    def id2data(self, dataset, ids):
-        new_dataset = []
-        for id in ids:
-            data = dataset[id]
-            new_dataset.append(data)
-        return new_dataset
-
-    def split(self, dataset, opt):
-        rate = opt.args['Split_rate']
-        total_num = len(dataset)
-        scaffolds = {}
-
-        for id, data in enumerate(dataset):
-            smiles = data['SMILES']
-            scaffold = self.generate_scaffold(smiles)
-
-            if scaffold not in scaffolds:
-                scaffolds[scaffold] = [id]
-            else:
-                scaffolds[scaffold].append(id)
-
-        scaffolds = {key: sorted(value) for key, value in scaffolds.items()}
-
-        scaffold_sets = [
-            scaffold_set for (scaffold, scaffold_set) in sorted(
-                scaffolds.items(), key=lambda x: (len(x[1]), x[1][0]), reverse=True
-            )
-        ]
-
-        if len(rate) == 1:
-            assert rate[0] < 1
-            train_num = int(total_num * rate[0])
-        elif len(rate) == 2:
-            assert rate[0]+rate[1] < 1
-            train_num = int(total_num * rate[0])
-            valid_num = int(total_num * rate[1])
-        else:
-            print("Wrong splitting rate")
-            raise RuntimeError
-
-        trainids = []
-        validids = []
-        testids = []
-
-        for scaffold_set in scaffold_sets:
-            if len(rate)==1:
-                if len(trainids) + len(scaffold_set) > train_num:
-                    validids += scaffold_set
-                else:
-                    trainids += scaffold_set
-            else:
-                if len(trainids) + len(scaffold_set) > train_num:
-                    if len(validids) + len(scaffold_set) > valid_num:
-                        testids += scaffold_set
-                    else:
-                        validids += scaffold_set
-                else:
-                    trainids += scaffold_set
-
-        trainset = self.id2data(dataset, trainids)
-        validset = self.id2data(dataset, validids)
-        if len(rate)==2:
-            testset = self.id2data(dataset, testids)
-            return (trainset, validset, testset)
-        else:
-            return (trainset, validset)
 
 class ScaffoldRandomSplitter(BasicSplitter):
     def __init__(self):
@@ -224,12 +130,12 @@ class ScaffoldRandomSplitter(BasicSplitter):
             print("Wrong splitting rate")
             raise RuntimeError
 
-        tasknum = opt.args['TaskNum']
+        tasknum = opt.args['TaskNum']  #1
         classnum = opt.args['ClassNum']  # for regression task, classnum is sest to be 1
 
 
         scaffold_keys = scaffolds.keys()  # sample scaffolds from scaffold_keys
-        if len(rate) == 1:  # only sample the validset.
+        if len(rate) == 1: 
             sample_size = int(len(scaffold_keys) * (1 - rate[0]))
 
             validids, _ = self.BinaryClassSample(dataset, scaffolds, sample_size, valid_num, minor_ratio, minorclass, validseed)
@@ -237,7 +143,7 @@ class ScaffoldRandomSplitter(BasicSplitter):
             trainids = self.excludedids(len(dataset), validids)
             trainset = self.id2data(dataset, trainids)
             return (trainset, validset)
-        elif len(rate) == 2:  # sample testset then validset.
+        elif len(rate) == 2:  
             sample_size = int(len(scaffold_keys) * (1 - rate[0] - rate[1]))
             testids, chosen_scaffolds = self.BinaryClassSample(dataset, scaffolds, sample_size, test_num, minor_ratio,
                                                         minorclass, testseed)
@@ -252,9 +158,9 @@ class ScaffoldRandomSplitter(BasicSplitter):
             trainset = self.id2data(dataset, trainids)
             return (trainset, validset, testset)
 
-        elif classnum == 1: # case: regression
-            scaffold_keys = scaffolds.keys()  # sample scaffolds from scaffold_keys
-            if len(rate) == 1:  # only sample the validset.
+        elif classnum == 1: # regression
+            scaffold_keys = scaffolds.keys() 
+            if len(rate) == 1:  
                 sample_size = int(len(scaffold_keys) * (1 - rate[0]))
                 # trick: the ratio of the sampled scaffolds is equal to the ratio of the sampled molecules.
                 # which means that the program hope to sample the scaffold_sets in an average size.
@@ -264,11 +170,11 @@ class ScaffoldRandomSplitter(BasicSplitter):
                 trainids = self.excludedids(len(dataset), validids)
                 trainset = self.id2data(dataset, trainids)
                 return (trainset, validset)
-            elif len(rate) == 2:  # sample testset then validset.
+            elif len(rate) == 2:  
                 sample_size = int(len(scaffold_keys) * (1 - rate[0] - rate[1]))
                 testids, chosen_scaffolds = self.RegressionSample(scaffolds, sample_size, test_num, testseed)
                 testset = self.id2data(dataset, testids)
-                # remain_scaffolds = self.excludedscaffolds(scaffold_keys, chosen_scaffolds)
+               
                 remain_scaffolds = {x: scaffolds[x] for x in scaffolds.keys() if x not in chosen_scaffolds}
                 sample_size = int(len(remain_scaffolds.keys()) * rate[1])
                 validids, _ = self.RegressionSample(remain_scaffolds, sample_size, valid_num, validseed)
@@ -294,10 +200,8 @@ class ScaffoldRandomSplitter(BasicSplitter):
                 print(sample_size)
             seed += 1
             random.seed(seed)
-            #print(len(list(keys)))
-            #print(sample_size)
+
             chosen_scaffolds = random.sample(list(keys), sample_size)
-            #print(chosen_scaffolds)
             count = sum([len(scaffolds[scaffold]) for scaffold in chosen_scaffolds])
             index = [index for scaffold in chosen_scaffolds for index in scaffolds[scaffold]]
 
